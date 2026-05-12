@@ -1,13 +1,17 @@
 import {
+  chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   computeCodexConfigUpdate,
@@ -430,5 +434,150 @@ describe("installSessionStartHooks (portable command)", () => {
       readFileSync(join(home, ".claude", "settings.json"), "utf-8"),
     );
     expect(settings.hooks.SessionStart[0].hooks[0].command).toBe(execFile);
+  });
+});
+
+describe("installSessionStartHooks (OpenCode plugin)", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "axi-sdk-js-opencode-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function pluginPath(home: string, marker = "gh-axi") {
+    return join(home, ".config", "opencode", "plugins", `axi-${marker}.js`);
+  }
+
+  it("writes a managed OpenCode plugin that injects AXI home context", () => {
+    const home = join(tmp, "home");
+    const execFile = join(tmp, "pkg", "dist", "bin", "gh-axi.js");
+    mkdirSync(join(tmp, "pkg", "dist", "bin"), { recursive: true });
+    writeFileSync(execFile, "// stub\n", "utf-8");
+
+    installSessionStartHooks({
+      marker: "gh-axi",
+      execPath: execFile,
+      binaryNames: ["gh-axi"],
+      homeDir: home,
+    });
+
+    const plugin = readFileSync(pluginPath(home), "utf-8");
+    expect(plugin).toContain("axi-sdk-js managed opencode plugin: gh-axi");
+    expect(plugin).toContain("experimental.chat.system.transform");
+    expect(plugin).toContain("## AXI ambient context: gh-axi");
+    expect(plugin).toContain('ambientHeader + "\\n" + homeView');
+    expect(plugin).toContain(JSON.stringify(execFile));
+    expect(plugin).toContain("spawn(command, [],");
+    expect(plugin).toContain("cwd: directory");
+    expect(plugin).not.toContain("tool:");
+  });
+
+  it("runs the generated OpenCode plugin and appends ambient context", async () => {
+    const home = join(tmp, "home");
+    const workspace = join(tmp, "workspace");
+    const execFile = join(tmp, "pkg", "dist", "bin", "gh-axi.js");
+    mkdirSync(join(tmp, "pkg", "dist", "bin"), { recursive: true });
+    mkdirSync(workspace, { recursive: true });
+    writeFileSync(
+      execFile,
+      '#!/usr/bin/env node\nconsole.log("home cwd:" + process.cwd())\n',
+      "utf-8",
+    );
+    chmodSync(execFile, 0o755);
+
+    installSessionStartHooks({
+      marker: "gh-axi",
+      execPath: execFile,
+      binaryNames: ["gh-axi"],
+      homeDir: home,
+    });
+
+    const pluginModule = await import(pathToFileURL(pluginPath(home)).href);
+    const plugin = await pluginModule.AxiGhAxiAmbientContextPlugin({
+      directory: workspace,
+    });
+    const output = { system: [] as string[] };
+
+    await plugin["experimental.chat.system.transform"](
+      { sessionID: "session-1" },
+      output,
+    );
+
+    expect(output.system).toEqual([
+      `## AXI ambient context: gh-axi\nhome cwd:${realpathSync(workspace)}`,
+    ]);
+  });
+
+  it("repairs the managed OpenCode plugin when the executable path changes", () => {
+    const home = join(tmp, "home");
+    const oldExec = join(tmp, "old", "dist", "bin", "gh-axi.js");
+    const newExec = join(tmp, "new", "dist", "bin", "gh-axi.js");
+    mkdirSync(join(tmp, "old", "dist", "bin"), { recursive: true });
+    mkdirSync(join(tmp, "new", "dist", "bin"), { recursive: true });
+    writeFileSync(oldExec, "// old\n", "utf-8");
+    writeFileSync(newExec, "// new\n", "utf-8");
+
+    installSessionStartHooks({
+      marker: "gh-axi",
+      execPath: oldExec,
+      binaryNames: ["gh-axi"],
+      homeDir: home,
+    });
+    installSessionStartHooks({
+      marker: "gh-axi",
+      execPath: newExec,
+      binaryNames: ["gh-axi"],
+      homeDir: home,
+    });
+
+    const plugin = readFileSync(pluginPath(home), "utf-8");
+    expect(plugin).toContain(JSON.stringify(newExec));
+    expect(plugin).not.toContain(JSON.stringify(oldExec));
+  });
+
+  it("does not overwrite an unmarked OpenCode plugin file", () => {
+    const home = join(tmp, "home");
+    const target = pluginPath(home);
+    mkdirSync(join(home, ".config", "opencode", "plugins"), {
+      recursive: true,
+    });
+    writeFileSync(
+      target,
+      "export const UserPlugin = async () => ({})\n",
+      "utf-8",
+    );
+    const errors: string[] = [];
+
+    installSessionStartHooks({
+      marker: "gh-axi",
+      execPath: join(tmp, "pkg", "dist", "bin", "gh-axi.js"),
+      binaryNames: ["gh-axi"],
+      homeDir: home,
+      onError: (message) => errors.push(message),
+    });
+
+    expect(readFileSync(target, "utf-8")).toBe(
+      "export const UserPlugin = async () => ({})\n",
+    );
+    expect(errors[0]).toContain(
+      "refusing to overwrite unmanaged OpenCode plugin",
+    );
+  });
+
+  it("skips the OpenCode plugin when hook installation policy rejects the executable", () => {
+    const home = join(tmp, "home");
+
+    installSessionStartHooks({
+      marker: "gh-axi",
+      execPath: join(tmp, "gh-axi", "bin", "gh-axi.ts"),
+      homeDir: home,
+      shouldInstall: () => false,
+    });
+
+    expect(existsSync(pluginPath(home))).toBe(false);
   });
 });
