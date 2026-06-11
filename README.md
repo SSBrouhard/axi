@@ -51,6 +51,8 @@ Reference AXI implementations:
 - [`gh-axi`](https://github.com/kunchenguid/gh-axi) — GitHub operations
 - [`chrome-devtools-axi`](https://github.com/kunchenguid/chrome-devtools-axi) — Browser automation
 
+See the full [AXI Catalog](#axi-catalog) below for all official and community AXIs.
+
 ```sh
 npm install -g gh-axi
 npm install -g chrome-devtools-axi
@@ -78,6 +80,28 @@ These principles define what makes a CLI tool "an AXI":
 | 8   | **Content first**                  | Running with no arguments shows live data, not help text                    |
 | 9   | **Contextual disclosure**          | Include next-step suggestions after each output                             |
 | 10  | **Consistent way to get help**     | Concise per-subcommand reference when agents need it                        |
+
+## AXI Catalog
+
+### Official
+
+Reference implementations maintained by the AXI project, validating the principles across different domains:
+
+| AXI                                                                       | Domain             | What it does                                                                                              |
+| ------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| [`gh-axi`](https://github.com/kunchenguid/gh-axi)                         | GitHub             | Issues, PRs, workflow runs, releases, and more. Wraps the official `gh` CLI with agent-ergonomic output.  |
+| [`chrome-devtools-axi`](https://github.com/kunchenguid/chrome-devtools-axi) | Browser automation | Navigate, click, fill, and extract with combined operations and query filtering. Wraps chrome-devtools-mcp. |
+| [`lavish-axi`](https://github.com/kunchenguid/lavish-axi)                 | Human review       | Turns agent-generated HTML artifacts into collaborative review surfaces - annotate, comment, and send feedback back to the agent. |
+
+### Community
+
+AXIs built and maintained by the community:
+
+| AXI                                                                | Author             | Domain | What it does                                                                       |
+| ------------------------------------------------------------------ | ------------------ | ------ | ----------------------------------------------------------------------------------- |
+| [`slack-axi`](https://github.com/JarvusInnovations/slack-axi)      | Jarvus Innovations | Slack  | Read, search, sweep, and safely draft Slack messages with token-efficient output.  |
+
+Built an AXI? [Open a PR](https://github.com/kunchenguid/axi/pulls) to add it to this list.
 
 ## Build Your Own AXI
 
