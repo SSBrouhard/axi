@@ -99,6 +99,7 @@ AXIs built and maintained by the community:
 
 | AXI                                                                | Author             | Domain | What it does                                                                       |
 | ------------------------------------------------------------------ | ------------------ | ------ | ----------------------------------------------------------------------------------- |
+| [`npm-axi`](https://github.com/SSBrouhard/npm-axi)                 | SSBrouhard         | npm    | Search and inspect npm registry packages, versions, dependencies, README previews, and downloads with token-efficient output. |
 | [`slack-axi`](https://github.com/JarvusInnovations/slack-axi)      | Jarvus Innovations | Slack  | Read, search, sweep, and safely draft Slack messages with token-efficient output.  |
 
 Built an AXI? [Open a PR](https://github.com/kunchenguid/axi/pulls) to add it to this list.
